@@ -101,7 +101,24 @@ function keyup( event ){ delete keys[ event.which ]; }
 function keydown( event ){ keys[ event.which ] = true; }
 function onblur( event ){ keys = {}; }
 function mouseup( event ){  }
-function mousedown( event ){ click = { x: event.offsetX + screenX - ( canvas.width / 2 ), y: event.offsetY + screenY - ( canvas.height / 2 ) } }
+function mousedown( event )
+{
+	var posx = 0;
+	var posy = 0;
+	if (!event) var event = window.event;
+	if (event.pageX || event.pageY) 	{
+		posx = event.pageX;
+		posy = event.pageY;
+	}
+	else if (event.clientX || event.clientY) 	{
+		posx = event.clientX + document.body.scrollLeft
+			+ document.documentElement.scrollLeft;
+		posy = event.clientY + document.body.scrollTop
+			+ document.documentElement.scrollTop;
+	}
+
+	click = { x: posx + screenX - ( canvas.width / 2 ), y: posy + screenY - ( canvas.height / 2 ) }
+}
 function mousemove( event ){  }
 function mouseout( event ){  }
 
