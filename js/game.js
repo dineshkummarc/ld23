@@ -1,107 +1,32 @@
-// LD23 Base Code!
-
-// Components
-var controllable = {};
-var rendered = {};
-var pathing = {};
-var positionable = {}; // Yucky name
-var solid = {};
-var attacker = {};
-var viewport = {}; // Will only have one member but meh
+// LD23 Game Code!
 
 // Globals
 var keys = {}; // Keys currently held
+var mouseX = null; // Last known mouse position
+var mouseY = null;
 var click = null;
-var grid = {};
-var nextId = 0;
 var loopCount = 0;
 var canvas = null;
 var context = null;
-var screenX = 0;
-var screenY = 0;
 var sprites = {};
-
-// Systems
-function controlSystem()
-{
-	if( click != null )
-	{
-		for( var id in controllable )
-		{
-			var path = { x: click.x, y: click.y, solid: false };
-			if( typeof solid[ id ] != "undefined" ) path.solid = true;
-			pathing[ id ] = path;
-		}
-
-		click = null;
-	}
-}
-
-function viewportSystem()
-{
-	//Looping this makes no sense...
-	for( var id in viewport )
-	{
-		var position = positionable[ id ];
-		screenX = position.x;
-		screenY = position.y;
-	}
-}
-
-function renderSystem()
-{
-	context.clearRect( 0, 0, canvas.width, canvas.height );
-	context.strokeRect( 0, 0, canvas.width, canvas.height );
-
-	var left = screenX - ( canvas.width / 2 );
-	var right = screenX + ( canvas.width / 2 );
-	var top = screenY - ( canvas.height / 2 );
-	var bottom = screenY + ( canvas.height / 2 );
-
-	for( var id in rendered )
-	{
-		var item = rendered[ id ];
-		var position = positionable[ id ];
-
-		if( left < position.x && right > position.x && top < position.y && bottom > position.y )
-		{
-			context.drawImage( item.sprite, position.x - left, position.y - top );
-		}
-	}
-}
-
-function pathingSystem()
-{
-	for( var id in pathing )
-	{
-		var path = pathing[ id ];
-		var position = positionable[ id ];
-		var distance2 = Math.pow( path.y - position.y, 2 ) + Math.pow( path.x - position.x, 2 );
-
-		if( distance2 > 25 ) // distance of 5
-		{
-			var direction = Math.atan2( path.y - position.y, path.x - position.x );
-
-			position.x += ( 5 * Math.cos( direction ) );
-			position.y += ( 5 * Math.sin( direction ) );
-
-			positionable[ id ] = position;
-		}
-		else
-		{
-			position.x = path.x;
-			position.y = path.y;
-			delete pathing[ id ];
-		}
-	}	
-}
+var lastFrame = 0;
+var firing = false;
+var planetRadius = 100;
+// Game objects
+var player = { angle: -Math.PI / 2 };
+var aliens = [];
+var bullets = [];
+var explosions = [];
 
 // Input
 function keyup( event ){ delete keys[ event.which ]; }
-function keydown( event ){ keys[ event.which ] = true; }
-function onblur( event ){ keys = {}; }
-function mouseup( event ){  }
-function mousedown( event )
+function keydown( event ){
+	keys[ event.which ] = true;
+}
+function onblur( event ){ keys = {}; firing = false; }
+function mouseup( event ){ firing = false; }
+function mousedown( event ){ firing = true; }
+function mousemove( event )
 {
 	var posx = 0;
 	var posy = 0;
@@ -117,27 +42,92 @@ function mousedown( event )
 			+ document.documentElement.scrollTop;
 	}
 
-	click = { x: posx + screenX - ( canvas.width / 2 ), y: posy + screenY - ( canvas.height / 2 ) }
+	mouseX = posx;
+	mouseY = posy;
 }
-function mousemove( event ){  }
-function mouseout( event ){  }
+function mouseout( event ){ mouseX = null; mouseY = null; firing = false; }
 
+
+function draw()
+{
+	context.fillStyle = "black";
+	context.fillRect( 0, 0, canvas.width, canvas.height );
+	context.strokeStyle = "white";
+	context.lineWidth = 1;
+	context.beginPath();
+	//context.moveTo( canvas.width / 2, canvas.height / 2 );
+	//context.arc( canvas.width / 2, canvas.height / 2, 500, 0, Math.PI, true );
+	context.arc( canvas.width / 2, ( canvas.height / 2 ) + planetRadius, planetRadius, 0, Math.PI * 2, true );
+	context.stroke();
+	context.closePath();
+
+	context.drawImage( sprites.player, ( canvas.width / 2 ) - 4, ( canvas.height / 2 ) - 16 );
+
+	for( var i in bullets )
+	{
+		var bullet = bullets[ i ];
+		var x = ( canvas.width / 2 ) + bullet.radius * Math.cos( bullet.angle );
+		var y = ( canvas.height / 2 ) + planetRadius + bullet.radius * Math.sin( bullet.angle );
+
+		context.rotate( bullet.angle );
+		context.drawImage( sprites.bullet, x, y );
+		context.restore();
+	}
+}
+
+function firePlayer()
+{
+	if( firing )
+	{
+		bullets.push( { angle: player.angle, radius: planetRadius, direction: 1 } );
+	}
+}
+
+function moveBullets()
+{
+	for( var i in bullets )
+	{
+		bullets[ i ].radius += bullets[ i ].direction;
+	}	
+}
+
+function movePlayer()
+{
+	if( keys[ "65" ] ) // A
+	{
+		player.angle -= Math.PI / 90;
+	}
+
+	if( keys[ "68" ] ) // D
+	{
+		player.angle += Math.PI / 90;
+	}
+}
 
 // Main game
 function init()
 {
+	lastFrame = new Date().getTime();
+
 	// Set up
 	canvas = document.getElementById( "game" );
 	canvas.width = 1024;
 	canvas.height = 768;
 	context = canvas.getContext( "2d" );
 
-	var spriteImages = document.getElementById( "sprites" ).getElementsByTagName( "img" );
+	var spriteImage = document.getElementById( "sprites" );
+	var spriteMap = { "player": [ 9, 16 ], "alien": [ 16, 16 ], "bullet": [ 1, 16 ] };
+	var left = 0;
 
-	for( var i = 0; i < spriteImages.length; i++ )
+	for( var i in spriteMap )
 	{
-		var image = spriteImages.item( i );
-		sprites[ image.id ] = image;
+		var sprite = spriteMap[ i ];
+		var tempCanvas = document.createElement( "canvas" );
+		tempCanvas.width = sprite[ 0 ];
+		tempCanvas.height = sprite[ 1 ];
+		tempCanvas.getContext( "2d" ).drawImage( spriteImage, left, 0, sprite[ 0 ], sprite[ 1 ], 0, 0, sprite[ 0 ], sprite[ 1 ] );
+		sprites[ i ] = tempCanvas;
+		left += sprite[ 0 ];
 	}
 
 	title();
@@ -159,33 +149,28 @@ function start()
 	canvas.onmousemove = mousemove;
 	canvas.onmouseout = mouseout;
 
-	// Create the player
-	var id = nextId++;
-	controllable[ id ] = {};
-	solid[ id ] = {};
-	viewport[ id ] = {};
-	rendered[ id ] = { sprite: sprites.player, rotation: 0 };
-	positionable[ id ] = { x: screenX, y: screenY };
-
-	id = nextId++;
-	rendered[ id ] = { sprite: sprites.player, rotation: 0 };
-	solid[ id ] = {};
-	positionable[ id ] = { x: 200, y: 200 };
-
 	loop();
 }
 
 function loop()
 {
+//	var thisFrame = new Date().getTime();
+//	console.log( thisFrame - lastFrame );
+//	lastFrame = thisFrame;
 	requestAnimationFrame( loop );
-	controlSystem();
+
+	movePlayer();
+	firePlayer();
+//	moveAliens();
+//	fireAliens();
+	moveBullets();
+	draw();
+
 	if( ++loopCount >= 1 )
 	{
-		pathingSystem();
 		loopCount = 0;
 	}
-	viewportSystem();
-	renderSystem();
+
 }
 
 
