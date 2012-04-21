@@ -15,7 +15,15 @@ var fired = false;
 var planetRadius = 100;
 var screenRadius = 0;
 var frameId = null;
+var timeoutId = [];
 var dead = false;
+var score = 0;
+var playerAnimFrame = 0;
+var spawnRate = 400; // 400 frames per spawn
+var spawnCount = 1; // 1 enemy per spawn
+var highScores = [];
+var playerName = "wibblymat";
+
 // Game objects
 var player = { angle: 0 };
 var aliens = {};
@@ -23,6 +31,17 @@ var bullets = {};
 var explosions = {};
 var stars= [];
 var nextId = 0;
+
+// Data
+//var types = 
+
+var waves = [
+	[ 1 ],
+	[ 1 ],
+	[ 2 ],
+	[ 5 ],
+	[ 7 ]
+];
 
 // Input
 function keyup( event ){ delete keys[ event.which ]; }
@@ -61,10 +80,19 @@ function draw()
 	context.strokeStyle = "white";
 	context.lineWidth = 1;
 
+	context.font = "36pt Courier New"
+	context.textAlign = "left";
+	context.textBaseline = "top";
+	context.fillStyle = "white";
+	context.fillText( "SCORE: " + score, 10, 10 );
+
+	context.fillText( "Rate: " + spawnRate, 10, 50 );
+	context.fillText( "Count: " + spawnCount, 10, 90 );
+
 	context.save();
 	context.translate( canvas.width / 2, canvas.height / 2 );
 
-	context.drawImage( sprites.player, - 4, -planetRadius -16 );
+	context.drawImage( sprites.player[ playerAnimFrame ], - 4, -planetRadius -16 );
 
 	context.rotate( player.angle );
 	context.fillStyle = "rgb( 50, 255, 50 )";
@@ -89,7 +117,7 @@ function draw()
 		context.save();
 		context.translate( x, y );
 		context.rotate( alien.angle );
-		context.drawImage( sprites.alien, -8, -8 );
+		context.drawImage( sprites.alien[ 0 ], -8, -8 );
 		context.restore();
 	}
 
@@ -108,7 +136,6 @@ function draw()
 		context.lineTo( 0, 10 );
 		context.stroke();
 		context.closePath();
-		//context.drawImage( sprites.bullet, 0, 0 );
 		context.restore();
 	}
 
@@ -164,8 +191,10 @@ function moveBullets()
 
 function destroyAlien( id )
 {
+	score += aliens[ id ].score;
 	delete aliens[ id ];
 	// Score/SFX/explosion go here
+	playSound( "explosion" );
 }
 
 function distance( object1, object2 )
@@ -191,14 +220,19 @@ function angleDiff( angle1, angle2 )
 
 function movePlayer()
 {
+	playerAnimFrame = Math.floor( loopCount / 20 ) % 2;
+
 	if( keys[ "65" ] ) // A
+	{
+		player.angle += Math.PI / 90;
+	}
+	else if( keys[ "68" ] ) // D
 	{
 		player.angle -= Math.PI / 90;
 	}
-
-	if( keys[ "68" ] ) // D
+	else
 	{
-		player.angle += Math.PI / 90;
+		playerAnimFrame = 2;
 	}
 }
 
@@ -230,16 +264,28 @@ function fireAliens()
 
 function spawnAliens()
 {
-	aliens[ nextId++ ] = { radius: screenRadius, angle: Math.random() * Math.PI * 2 };
+	spawnRate -= spawnRate * 0.05;
+
+	if( spawnRate < 200 )
+	{
+		spawnRate = 400;
+		spawnCount++;
+	}
+
+	for( var i = 0; i < spawnCount; i++ )
+	{
+		aliens[ nextId++ ] = { radius: screenRadius, angle: Math.random() * Math.PI * 2, score: 100 };
+	}
 }
 
 function gameOver()
 {
+	window.onkeydown = null; canvas.onmouseup = null;
+
 	cancelAnimationFrame( frameId );
 	window.onkeyup = null;
-	window.onkeydown = function(){ init() };
+	createTimeout( function(){ window.onkeydown = showScores; canvas.onmouseup = showScores; }, 1000 );
 	window.onblur = null;
-	window.onmouseup = function(){ init() };
 	window.onmousedown = null;
 	canvas.onmousemove = null;
 	canvas.onmouseout = null;
@@ -267,6 +313,101 @@ function gameOverLoop()
 		context.drawImage( document.getElementById( "game-over-image" ), 0, 0 );
 }
 
+function loadScores()
+{
+	if( canStore() )
+	{
+		scores = localStorage.getItem( "scores" );
+
+		if( scores != null ) highScores = JSON.parse( scores );
+	}
+}
+
+function saveScores()
+{
+	if( canStore() )
+	{
+		localStorage.setItem( "scores", JSON.stringify( highScores ) );
+	}
+}
+
+function canStore()
+{
+	return typeof window.localStorage != "undefined" && window.localStorage != null;
+}
+
+function cancelTimeout()
+{
+	clearTimeout( timeoutId );
+}
+
+function createTimeout( callback, time )
+{
+	cancelTimeout();
+	timeoutId = setTimeout( callback, time );
+}
+
+function showScores()
+{
+	window.onkeydown = null; canvas.onmouseup = null;
+	if( frameId != null )
+	{
+		cancelAnimationFrame( frameId );
+	}
+
+	cancelTimeout();
+
+	highScores.push( { name: playerName, score: score } );
+
+	highScores.sort( function( a, b ){ return b.score - a.score; } )
+
+	// Hmm, how do we know where we were inserted?
+
+	var lookup = highScores[ 0 ];
+	var index = 0;
+	var found = null;
+
+	while( lookup.score >= score && index < highScores.length )
+	{
+		lookup = highScores[ index ];
+
+		if( lookup.name == playerName )
+		{
+			found = index;
+		}
+
+		index++;
+	}
+
+	var bottom = Math.min( found + 5, highScores.length );
+	var top = bottom - 10;
+
+	if( top < 0 )
+	{
+		top = 0;
+		bottom = Math.min( top + 10, highScores.length );
+	}
+
+	context.fillStyle = "black";
+	context.fillRect( 0, 0, canvas.width, canvas.height );
+	context.font = "20pt Courier New";
+
+	context.fillStyle = "white";
+
+	var centre = canvas.width / 2;
+
+	for( var i = 0; i < bottom - top; i++ )
+	{
+		var highScore = highScores[ i + top ];
+		context.fillText( ( i + top + 1 ), 50, 30 * ( 1 + i ) );
+		context.fillText( highScore.name, centre - 50 - context.measureText( highScore.name ).width, 30 * ( 1 + i ) );
+		context.fillText( highScore.score, centre + 50, 30 * ( 1 + i ) );
+	}
+
+	saveScores();
+
+	createTimeout( function(){ window.onkeydown = init; canvas.onmouseup = init; }, 1000 );
+}
 
 // Game loop and init
 function initOnce()
@@ -284,7 +425,7 @@ function initOnce()
 	screenRadius = Math.sqrt( Math.pow( canvas.width / 2, 2 ) + Math.pow( canvas.height / 2, 2 ) );
 
 	var spriteImage = document.getElementById( "sprites" );
-	var spriteMap = { "player": [ 9, 16 ], "alien": [ 16, 16 ], "bullet": [ 1, 16 ] };
+	var spriteMap = { "alien": [ 16, 16, 1 ], "player": [ 6, 16, 3 ] };
 	var left = 0;
 
 	var max = Math.pow( canvas.width / 2, 3 ) / 3
@@ -308,18 +449,25 @@ function initOnce()
 	for( var i in spriteMap )
 	{
 		var sprite = spriteMap[ i ];
-		var tempCanvas = document.createElement( "canvas" );
-		tempCanvas.width = sprite[ 0 ];
-		tempCanvas.height = sprite[ 1 ];
-		tempCanvas.getContext( "2d" ).drawImage( spriteImage, left, 0, sprite[ 0 ], sprite[ 1 ], 0, 0, sprite[ 0 ], sprite[ 1 ] );
-		sprites[ i ] = tempCanvas;
-		left += sprite[ 0 ];
+		sprites[ i ] = [];
+		for( var j = 0; j < sprite[ 2 ]; j++ )
+		{
+			var tempCanvas = document.createElement( "canvas" );
+			tempCanvas.width = sprite[ 0 ];
+			tempCanvas.height = sprite[ 1 ];
+			tempCanvas.getContext( "2d" ).drawImage( spriteImage, left, 0, sprite[ 0 ], sprite[ 1 ], 0, 0, sprite[ 0 ], sprite[ 1 ] );
+			sprites[ i ][ j ] = tempCanvas;
+			left += sprite[ 0 ];
+		}
 	}
 
 	sounds[ "you-suck" ] = document.getElementById( "you-suck-sound" );
 	sounds[ "pew" ] = document.getElementById( "pew-sound" );
+	sounds[ "explosion" ] = document.getElementById( "explosion-sound" );
 
 	document.getElementById( "loading" ).style.display = "none";
+
+	loadScores();
 
 	init();
 }
@@ -331,6 +479,8 @@ function init()
 		cancelAnimationFrame( frameId );
 	}
 
+	cancelTimeout();
+
 	// Initialise all the things!
 	keys = {}; // Keys currently held
 	mouseX = null; // Last known mouse position
@@ -339,6 +489,9 @@ function init()
 	loopCount = 0;
 	fired = false;
 	dead = false;
+	score = 0;
+	spawnRate = 400;
+	spawnCount = 1;
 
 	// Game objects
 	player = { angle: 0 };
@@ -354,18 +507,21 @@ function init()
 
 function title()
 {
+	window.onkeydown = null; canvas.onmouseup = null;
 	var image = document.getElementById( "title-image" );
 	context.drawImage( image, 0, 0, image.width, image.height, 0, 0, canvas.width, canvas.height );
-	window.onkeydown = function(){ start() };
-	window.onmouseup = function(){ start() };
+
+	createTimeout( function(){ window.onkeydown = start; canvas.onmouseup = start; }, 1000 );
 }
 
 function start()
 {
+	cancelTimeout();
+
 	window.onkeyup = keyup;
 	window.onkeydown = keydown;
 	window.onblur = onblur;
-	window.onmouseup = mouseup;
+	canvas.onmouseup = mouseup;
 	window.onmousedown = mousedown;
 	canvas.onmousemove = mousemove;
 	canvas.onmouseout = mouseout;
@@ -396,7 +552,7 @@ function loop()
 			fireAliens();
 		}
 
-		if( mod( loopCount, 300 ) == 0 )
+		if( mod( loopCount, Math.floor( spawnRate ) ) == 0 )
 		{
 			spawnAliens();
 		}
