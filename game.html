@@ -7,11 +7,16 @@
 	</head>
 	<body onload="initOnce();" style="margin: 0px;">
 		<div style="position: relative;">
+			<img id="loading" src="images/loading.png" />
 			<canvas style="postion: absolute; left: 0px; top: 0px;" id="game"></canvas>
 			<div style="display: none;" id="images">
 				<img id="title-image" src="images/title.png" />
 				<img id="game-over-image" src="images/game-over.png" />
 				<img id="sprites" src="images/sprites.png" />
+			</div>
+			<div style="display: none;" id="sounds">
+				<audio src="sounds/you-suck.wav" preload="true" id="you-suck-sound" />
+				<audio src="sounds/pew.wav" preload="true" id="pew-sound" />
 			</div>
 		</div>
 	</body>

@@ -9,6 +9,7 @@ var loopCount = 0;
 var canvas = null;
 var context = null;
 var sprites = {};
+var sounds = {};
 var lastFrame = 0;
 var fired = false;
 var planetRadius = 100;
@@ -127,6 +128,7 @@ function firePlayer()
 	if( fired )
 	{
 		bullets[ nextId++ ] = { angle: -player.angle, radius: planetRadius + 20, direction: 1 };
+		playSound( "pew" );
 		fired = false;
 	}
 }
@@ -141,7 +143,7 @@ function moveBullets()
 		{
 			delete bullets[ i ] ;
 		}
-		else if( bullet.direction < 0 && distance( bullet, { radius: planetRadius + 26, angle: player.angle } ) < 2 )
+		else if( bullet.direction < 0 && distance( bullet, { radius: planetRadius + 21, angle: -player.angle } ) < 5 )
 		{
 			dead = true;
 		}
@@ -215,10 +217,15 @@ function moveAliens()
 
 function fireAliens()
 {
+	var play = false;
+
 	for( var i in aliens )
 	{
+		play = true;
 		bullets[ nextId++ ] = { angle: aliens[ i ].angle, radius: aliens[ i ].radius, direction: -1 };
-	}	
+	}
+
+	if( play ) playSound( "pew" );
 }
 
 function spawnAliens()
@@ -236,6 +243,8 @@ function gameOver()
 	window.onmousedown = null;
 	canvas.onmousemove = null;
 	canvas.onmouseout = null;
+
+	playSound( "you-suck" );
 
 	gameOverLoop();
 }
@@ -307,6 +316,11 @@ function initOnce()
 		left += sprite[ 0 ];
 	}
 
+	sounds[ "you-suck" ] = document.getElementById( "you-suck-sound" );
+	sounds[ "pew" ] = document.getElementById( "pew-sound" );
+
+	document.getElementById( "loading" ).style.display = "none";
+
 	init();
 }
 
@@ -334,13 +348,6 @@ function init()
 	nextId = 0;
 
 	lastFrame = new Date().getTime();
-
-	//for( var i = 0; i < 10; i++ )
-	//{
-	//	aliens[ nextId++ ] = { radius: screenRadius, angle: i * ( Math.PI / 5 ) };
-//	}
-
-	aliens[ nextId++ ] = { radius: screenRadius, angle: 0 };
 
 	title();
 }
@@ -399,6 +406,12 @@ function loop()
 	}
 }
 
+function playSound( name )
+{
+	var audio = new Audio();
+	audio.src = sounds[ name ].src;
+	audio.play();
+}
 
 // requestAnimationFrame polyfill - http://paulirish.com/2011/requestanimationframe-for-smart-animating/
 (function() {
