@@ -5,11 +5,12 @@
 		<script type="text/javascript" src="js/game.js"></script>
 		<link rel="stylesheet" href="css/game.css" type="text/css"></script>
 	</head>
-	<body onload="init();" style="margin: 0px;">
+	<body onload="initOnce();" style="margin: 0px;">
 		<div style="position: relative;">
 			<canvas style="postion: absolute; left: 0px; top: 0px;" id="game"></canvas>
 			<div style="display: none;" id="images">
 				<img id="title-image" src="images/title.png" />
+				<img id="game-over-image" src="images/game-over.png" />
 				<img id="sprites" src="images/sprites.png" />
 			</div>
 		</div>
