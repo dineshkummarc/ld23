@@ -347,7 +347,8 @@ function init()
 
 function title()
 {
-	context.drawImage( document.getElementById( "title-image" ), 0, 0 );
+	var image = document.getElementById( "title-image" );
+	context.drawImage( image, 0, 0, image.width, image.height, 0, 0, canvas.width, canvas.height );
 	window.onkeydown = function(){ start() };
 	window.onmouseup = function(){ start() };
 }
