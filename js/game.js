@@ -19,10 +19,11 @@ var timeoutId = [];
 var dead = false;
 var score = 0;
 var playerAnimFrame = 0;
-var spawnRate = 400; // 400 frames per spawn
-var spawnCount = 1; // 1 enemy per spawn
 var highScores = [];
 var playerName = "wibblymat";
+var level = 1;
+var spawnRate = 300;
+var bodyCount = 0;
 
 // Game objects
 var player = { angle: 0 };
@@ -33,15 +34,10 @@ var stars= [];
 var nextId = 0;
 
 // Data
-//var types = 
-
-var waves = [
-	[ 1 ],
-	[ 1 ],
-	[ 2 ],
-	[ 5 ],
-	[ 7 ]
-];
+var types = [
+	{ fireRate: 150, type: 0, width: 64 },
+	{ fireRate: 120, type: 1, width: 16 },
+]
 
 // Input
 function keyup( event ){ delete keys[ event.which ]; }
@@ -86,8 +82,7 @@ function draw()
 	context.fillStyle = "white";
 	context.fillText( "SCORE: " + score, 10, 10 );
 
-	context.fillText( "Rate: " + spawnRate, 10, 50 );
-	context.fillText( "Count: " + spawnCount, 10, 90 );
+	context.fillText( "Level: " + level, 10, 50 );
 
 	context.save();
 	context.translate( canvas.width / 2, canvas.height / 2 );
@@ -108,19 +103,6 @@ function draw()
 		context.strokeRect( star.x, star.y, 1, 1 );
 	}
 
-	for( var i in aliens )
-	{
-		var alien = aliens[ i ];
-		var x = alien.radius * Math.cos( alien.angle - ( Math.PI / 2 ) );
-		var y = alien.radius * Math.sin( alien.angle - ( Math.PI / 2 ) );
-
-		context.save();
-		context.translate( x, y );
-		context.rotate( alien.angle );
-		context.drawImage( sprites.alien[ 0 ], -8, -8 );
-		context.restore();
-	}
-
 	for( var i in bullets )
 	{
 		var bullet = bullets[ i ];
@@ -136,6 +118,19 @@ function draw()
 		context.lineTo( 0, 10 );
 		context.stroke();
 		context.closePath();
+		context.restore();
+	}
+
+	for( var i in aliens )
+	{
+		var alien = aliens[ i ];
+		var x = alien.radius * Math.cos( alien.angle - ( Math.PI / 2 ) );
+		var y = alien.radius * Math.sin( alien.angle - ( Math.PI / 2 ) );
+
+		context.save();
+		context.translate( x, y );
+		context.rotate( alien.angle );
+		context.drawImage( sprites.alien[ alien.type ], -8, -8 );
 		context.restore();
 	}
 
@@ -170,7 +165,7 @@ function moveBullets()
 		{
 			delete bullets[ i ] ;
 		}
-		else if( bullet.direction < 0 && distance( bullet, { radius: planetRadius + 21, angle: -player.angle } ) < 5 )
+		else if( bullet.direction < 0 && collision( bullet, { radius: planetRadius + 8, angle: -player.angle, width: 5, height: 16 } ) )
 		{
 			dead = true;
 		}
@@ -180,7 +175,7 @@ function moveBullets()
 			{
 				var alien = aliens[ j ];
 
-				if( distance( bullet, alien ) < 8 )
+				if( collision( bullet, alien ) )
 				{
 					destroyAlien( j );
 				}
@@ -191,7 +186,13 @@ function moveBullets()
 
 function destroyAlien( id )
 {
-	score += aliens[ id ].score;
+	var nextLevel = ( level + 1 ) * ( level / 2 ) * 10;
+
+	bodyCount++;
+
+	if( bodyCount > nextLevel ) level++;
+
+	score += ( aliens[ id ].score * level );
 	delete aliens[ id ];
 	// Score/SFX/explosion go here
 	playSound( "explosion" );
@@ -205,6 +206,36 @@ function distance( object1, object2 )
 
 	// Cosine rule
 	return Math.sqrt( a*a + b*b - 2*a*b*Math.cos( alpha ) );
+}
+
+function collision( bullet, object )
+{
+	// Bullet is a point with angle, radius
+	// Object is a solid with angle, radius, width, height
+	// Object's angle and radius define CENTRE of object
+
+	if( Math.abs( bullet.radius - object.radius ) > ( object.height / 2 ) )
+	{
+		// Get out with little calculation if we can
+		return false;
+	}
+
+	var d = distance( bullet, object );
+
+	if( d > object.width + object.height )
+	{
+		return false;
+	}
+
+	var theta = angleDiff( bullet.angle, object.angle );
+
+	var alpha = Math.asin( bullet.radius * Math.sin( theta ) / d );
+	if( alpha > Math.PI ) alpha = Math.PI - alpha;
+
+	var x = d * Math.sin( alpha );
+	var y = d * Math.cos( alpha );
+
+	return ( x < object.width / 2 ) && ( y < object.height / 2 );
 }
 
 function angleDiff( angle1, angle2 )
@@ -255,8 +286,11 @@ function fireAliens()
 
 	for( var i in aliens )
 	{
-		play = true;
-		bullets[ nextId++ ] = { angle: aliens[ i ].angle, radius: aliens[ i ].radius, direction: -1 };
+		if( loopCount % aliens[ i ].fireRate == 0 )
+		{
+			play = true;
+			bullets[ nextId++ ] = { angle: aliens[ i ].angle, radius: aliens[ i ].radius, direction: -1 };
+		}
 	}
 
 	if( play ) playSound( "pew" );
@@ -264,17 +298,12 @@ function fireAliens()
 
 function spawnAliens()
 {
-	spawnRate -= spawnRate * 0.05;
-
-	if( spawnRate < 200 )
-	{
-		spawnRate = 400;
-		spawnCount++;
-	}
+	var spawnCount = Math.floor( Math.log( level ) + 1 );
 
 	for( var i = 0; i < spawnCount; i++ )
 	{
-		aliens[ nextId++ ] = { radius: screenRadius, angle: Math.random() * Math.PI * 2, score: 100 };
+
+		aliens[ nextId++ ] = { radius: screenRadius, angle: Math.random() * Math.PI * 2, score: 100, type: 0, fireRate: 120, width: 64, height: 16 };
 	}
 }
 
@@ -490,8 +519,10 @@ function init()
 	fired = false;
 	dead = false;
 	score = 0;
-	spawnRate = 400;
-	spawnCount = 1;
+	level = 1;
+	spawnRate = 300;
+	bodyCount = 0;
+
 
 	// Game objects
 	player = { angle: 0 };
@@ -546,13 +577,9 @@ function loop()
 		moveAliens();
 		moveBullets();
 		firePlayer();
+		fireAliens();
 
-		if( mod( loopCount, 90 ) == 0 )
-		{
-			fireAliens();
-		}
-
-		if( mod( loopCount, Math.floor( spawnRate ) ) == 0 )
+		if( mod( loopCount, spawnRate ) == 0 )
 		{
 			spawnAliens();
 		}
