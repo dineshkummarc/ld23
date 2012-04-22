@@ -340,11 +340,10 @@ function fireAliens()
 
 function spawnAliens()
 {
-	var spawnCount = Math.floor( Math.log( level ) + 1 );
+	var spawnCount = Math.ceil( level / 2 );
 
 	for( var i = 0; i < spawnCount; i++ )
 	{
-
 		aliens[ nextId++ ] = { radius: screenRadius, angle: Math.random() * Math.PI * 2, score: 100, type: 0, fireRate: 120, width: 64, height: 16 };
 	}
 }
