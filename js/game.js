@@ -48,8 +48,8 @@ function keydown( event ){
 	keys[ event.which ] = true;
 }
 function onblur( event ){ keys = {}; firing = false; }
-function mouseup( event ){ fired = true; }
-function mousedown( event ){ }
+function mouseup( event ){ fired = true; event.preventDefault(); }
+function mousedown( event ){ event.preventDefault(); }
 function mousemove( event )
 {
 	var posx = 0;
@@ -394,7 +394,7 @@ function gameOver()
 	window.onkeyup = null;
 	createTimeout( function(){ window.onkeydown = showScores; canvas.onmouseup = showScores; }, 1000 );
 	window.onblur = null;
-	window.onmousedown = null;
+	canvas.onmousedown = null;
 	canvas.onmousemove = null;
 	canvas.onmouseout = null;
 
@@ -684,7 +684,7 @@ function start()
 	window.onkeydown = keydown;
 	window.onblur = onblur;
 	canvas.onmouseup = mouseup;
-	window.onmousedown = mousedown;
+	canvas.onmousedown = mousedown;
 	canvas.onmousemove = mousemove;
 	canvas.onmouseout = mouseout;
 
