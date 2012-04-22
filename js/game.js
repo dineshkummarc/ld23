@@ -22,8 +22,11 @@ var playerAnimFrame = 0;
 var highScores = [];
 var playerName = "wibblymat";
 var level = 1;
-var spawnRate = 300;
+var spawnRate = 200;
 var bodyCount = 0;
+var fireRadius = 300;
+var damage = 40;
+var maxDamage = 40;
 
 // Game objects
 var player = { angle: 0 };
@@ -169,7 +172,32 @@ function draw()
 	context.fillStyle = "white";
 	context.fillText( "SCORE: " + score, 10, 10 );
 
-	context.fillText( "Level: " + level, 10, 50 );	
+	context.fillText( "Level: " + level, 10, 50 );
+
+	context.fillStyle = "red";
+	context.strokeStyle = "white";
+	context.lineWidth = 3;
+
+	context.fillRect( canvas.width - ( ( damage + 1 ) * 10 ), 10, damage * 10, maxDamage );
+
+	var cornerRadius = 8;
+
+	context.beginPath();
+	context.moveTo( canvas.width - ( 10 + maxDamage * 10 ) + cornerRadius, 10 );
+
+	context.lineTo( canvas.width - 10 - cornerRadius, 10 ) // Top
+	context.arcTo( canvas.width - 10, 10, canvas.width - 10, 10 + cornerRadius, cornerRadius ); // Top-right
+	context.lineTo( canvas.width - 10, 50 - cornerRadius ) // Right
+	context.arcTo( canvas.width - 10, 50, canvas.width - 10 - cornerRadius, 50, cornerRadius ); // Bottom-right
+	context.lineTo( canvas.width - ( 10 + maxDamage * 10 ) + cornerRadius, 50 ) // Bottom
+	context.arcTo( canvas.width - ( 10 + maxDamage * 10 ), 50, canvas.width - ( 10 + maxDamage * 10 ), 50 - cornerRadius, cornerRadius ); // Bottom-left
+	context.lineTo( canvas.width - ( 10 + maxDamage * 10 ), 10 + cornerRadius ) // Left
+	context.arcTo( canvas.width - ( 10 + maxDamage * 10 ), 10, canvas.width - ( 10 + maxDamage * 10 ) + cornerRadius, 10, cornerRadius ); // Top-left
+
+	context.closePath();
+	context.stroke();
+
+	//context.strokeRect( canvas.width - 410, 10, 400, 40 );
 }
 
 function mod( n, m )
@@ -196,7 +224,13 @@ function moveBullets()
 	{
 		var bullet = bullets[ i ]
 		bullet.radius += bullet.direction * 2;
-		if( bullet.radius < planetRadius || bullet.radius > screenRadius )
+		if( bullet.radius < planetRadius )
+		{
+			damage--;
+			if( damage <= 0 ) dead = true;
+			delete bullets[ i ] ;
+		}
+		else if( bullet.radius > screenRadius )
 		{
 			delete bullets[ i ] ;
 		}
@@ -227,7 +261,11 @@ function destroyAlien( id )
 
 	bodyCount++;
 
-	if( bodyCount > nextLevel ) level++;
+	if( bodyCount > nextLevel )
+	{
+		level++;
+		if( damage < maxDamage ) damage++;
+	}
 
 	score += ( aliens[ id ].score * level );
 	delete aliens[ id ];
@@ -328,7 +366,7 @@ function fireAliens()
 
 	for( var i in aliens )
 	{
-		if( loopCount % aliens[ i ].fireRate == 0 )
+		if( aliens[ i ].radius < fireRadius && loopCount % aliens[ i ].fireRate == 0 )
 		{
 			play = true;
 			bullets[ nextId++ ] = { angle: aliens[ i ].angle, radius: aliens[ i ].radius, direction: -1 };
@@ -340,7 +378,7 @@ function fireAliens()
 
 function spawnAliens()
 {
-	var spawnCount = Math.ceil( level / 2 );
+	var spawnCount = Math.ceil( level );
 
 	for( var i = 0; i < spawnCount; i++ )
 	{
@@ -609,6 +647,7 @@ function init()
 	level = 1;
 	spawnRate = 300;
 	bodyCount = 0;
+	damage = maxDamage;
 
 
 	// Game objects
