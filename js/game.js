@@ -165,7 +165,7 @@ function moveBullets()
 		{
 			delete bullets[ i ] ;
 		}
-		else if( bullet.direction < 0 && collision( bullet, { radius: planetRadius + 8, angle: -player.angle, width: 5, height: 16 } ) )
+		else if( bullet.direction < 0 && collision( bullet, { radius: planetRadius + 8, angle: -player.angle, width: 8, height: 16 } ) )
 		{
 			dead = true;
 		}
@@ -386,21 +386,26 @@ function showScores()
 
 	cancelTimeout();
 
-	highScores.push( { name: playerName, score: score } );
+	if( score > 0 )
+	{
+		playerName = prompt( "High Score! What is your name?", playerName );
 
-	highScores.sort( function( a, b ){ return b.score - a.score; } )
+		highScores.push( { name: playerName, score: score } );
+
+		highScores.sort( function( a, b ){ return b.score - a.score; } )
+	}
 
 	// Hmm, how do we know where we were inserted?
 
 	var lookup = highScores[ 0 ];
 	var index = 0;
-	var found = null;
+	var found = highScores.length + 1;
 
 	while( lookup.score >= score && index < highScores.length )
 	{
 		lookup = highScores[ index ];
 
-		if( lookup.name == playerName )
+		if( lookup.score == score && lookup.name == playerName )
 		{
 			found = index;
 		}
@@ -421,12 +426,19 @@ function showScores()
 	context.fillRect( 0, 0, canvas.width, canvas.height );
 	context.font = "20pt Courier New";
 
-	context.fillStyle = "white";
-
 	var centre = canvas.width / 2;
 
 	for( var i = 0; i < bottom - top; i++ )
 	{
+		if( i + top == found )
+		{
+			context.fillStyle = "yellow";
+		}
+		else
+		{
+			context.fillStyle = "white";
+		}
+
 		var highScore = highScores[ i + top ];
 		context.fillText( ( i + top + 1 ), 50, 30 * ( 1 + i ) );
 		context.fillText( highScore.name, centre - 50 - context.measureText( highScore.name ).width, 30 * ( 1 + i ) );
@@ -490,13 +502,46 @@ function initOnce()
 		}
 	}
 
-	sounds[ "you-suck" ] = document.getElementById( "you-suck-sound" );
-	sounds[ "pew" ] = document.getElementById( "pew-sound" );
-	sounds[ "explosion" ] = document.getElementById( "explosion-sound" );
+	sounds[ "you-suck" ] = { next: 0, channels: [] };
+	sounds[ "pew" ] = { next: 0, channels: [] };
+	sounds[ "explosion" ] = { next: 0, channels: [] };
+
+	var audio = null;
+
+	for( var i = 0; i < 5; i++ )
+	{
+		audio = new Audio();
+		audio.src = document.getElementById( "you-suck-sound" ).src;
+		sounds[ "you-suck" ].channels.push( audio );
+
+		audio = new Audio();
+		audio.src = document.getElementById( "pew-sound" ).src;
+		sounds[ "pew" ].channels.push( audio );
+
+		audio = new Audio();
+		audio.src = document.getElementById( "explosion-sound" ).src;
+		sounds[ "explosion" ].channels.push( audio );
+	}
 
 	document.getElementById( "loading" ).style.display = "none";
 
 	loadScores();
+
+	if( highScores.length == 0 )
+	{
+		highScores = [
+			{ name: "wibblymat", score: 1000 },
+			{ name: "wibblymat", score: 900 },
+			{ name: "wibblymat", score: 800 },
+			{ name: "wibblymat", score: 700 },
+			{ name: "wibblymat", score: 600 },
+			{ name: "wibblymat", score: 500 },
+			{ name: "wibblymat", score: 400 },
+			{ name: "wibblymat", score: 300 },
+			{ name: "wibblymat", score: 200 },
+			{ name: "wibblymat", score: 100 },
+		];
+	}
 
 	init();
 }
@@ -591,9 +636,10 @@ function loop()
 
 function playSound( name )
 {
-	var audio = new Audio();
-	audio.src = sounds[ name ].src;
-	audio.play();
+	var sound = sounds[ name ];
+	var next = sound.next++ % sound.channels.length;
+
+	sound.channels[ next ].play();
 }
 
 // requestAnimationFrame polyfill - http://paulirish.com/2011/requestanimationframe-for-smart-animating/
