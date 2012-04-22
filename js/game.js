@@ -76,14 +76,6 @@ function draw()
 	context.strokeStyle = "white";
 	context.lineWidth = 1;
 
-	context.font = "36pt Courier New"
-	context.textAlign = "left";
-	context.textBaseline = "top";
-	context.fillStyle = "white";
-	context.fillText( "SCORE: " + score, 10, 10 );
-
-	context.fillText( "Level: " + level, 10, 50 );
-
 	context.save();
 	context.translate( canvas.width / 2, canvas.height / 2 );
 
@@ -99,8 +91,8 @@ function draw()
 	for( var i in stars )
 	{
 		var star = stars[ i ];
-		context.fillStyle = "white";
-		context.strokeRect( star.x, star.y, 1, 1 );
+		context.fillStyle = "rgb( 200, 200, 200 )";
+		context.fillRect( star.x, star.y, 2, 2 );
 	}
 
 	for( var i in bullets )
@@ -130,11 +122,54 @@ function draw()
 		context.save();
 		context.translate( x, y );
 		context.rotate( alien.angle );
-		context.drawImage( sprites.alien[ alien.type ], -8, -8 );
+		context.drawImage( sprites.alien[ alien.type ], -alien.width / 2, -alien.height / 2 );
+		context.restore();
+	}
+
+	for( var i in explosions )
+	{
+		var explosion = explosions[ i ];
+		var x = explosion.radius * Math.cos( explosion.angle - ( Math.PI / 2 ) );
+		var y = explosion.radius * Math.sin( explosion.angle - ( Math.PI / 2 ) );
+
+		context.save();
+		context.translate( x, y );
+		context.rotate( explosion.angle );
+
+		var colour = [ Math.floor( Math.random() * 256 ), Math.floor( Math.random() * 256 ), Math.floor( Math.random() * 256 ) ];
+		context.strokeStyle = "rgb( " + colour[ 0 ] + ", " + colour[ 1 ] + ", " + colour[ 2 ] + " )";
+
+		for( var j = 0; j < 11; j++ )
+		{
+			context.save();
+
+			context.rotate( ( j / 11 ) * Math.PI * 2 );
+			context.beginPath();
+			context.moveTo( Math.max( explosion.frame - 20, 0 ), 0 );
+			context.lineTo( Math.min( explosion.frame, 80 ), 0 );
+			context.stroke();
+			context.closePath();
+
+			context.restore();
+		}
+
+		if( explosion.frame++ > 80 )
+		{
+			delete explosions[ i ];
+		}
+
 		context.restore();
 	}
 
 	context.restore();
+
+	context.font = "36pt Impact"
+	context.textAlign = "left";
+	context.textBaseline = "top";
+	context.fillStyle = "white";
+	context.fillText( "SCORE: " + score, 10, 10 );
+
+	context.fillText( "Level: " + level, 10, 50 );	
 }
 
 function mod( n, m )
@@ -187,6 +222,8 @@ function moveBullets()
 function destroyAlien( id )
 {
 	var nextLevel = ( level + 1 ) * ( level / 2 ) * 10;
+
+	explosions[ nextId++ ] = { radius: aliens[ id ].radius, angle: aliens[ id ].angle, frame: 0 };
 
 	bodyCount++;
 
@@ -251,6 +288,11 @@ function angleDiff( angle1, angle2 )
 
 function movePlayer()
 {
+	if( keys[ "32"] )
+	{
+		pause(); return;
+	}
+
 	playerAnimFrame = Math.floor( loopCount / 20 ) % 2;
 
 	if( keys[ "65" ] ) // A
@@ -386,13 +428,15 @@ function showScores()
 
 	cancelTimeout();
 
-	if( score > 0 )
+	if( score > 0 && ( highScores.length < 20 || score > highScores[ 19 ].score ) )
 	{
 		playerName = prompt( "High Score! What is your name?", playerName );
 
 		highScores.push( { name: playerName, score: score } );
 
 		highScores.sort( function( a, b ){ return b.score - a.score; } )
+
+		while( highScores.length > 20 ) highScores.pop();
 	}
 
 	// Hmm, how do we know where we were inserted?
@@ -413,24 +457,23 @@ function showScores()
 		index++;
 	}
 
-	var bottom = Math.min( found + 5, highScores.length );
-	var top = bottom - 10;
-
-	if( top < 0 )
-	{
-		top = 0;
-		bottom = Math.min( top + 10, highScores.length );
-	}
+	var	bottom = Math.min( 20, highScores.length );
 
 	context.fillStyle = "black";
 	context.fillRect( 0, 0, canvas.width, canvas.height );
-	context.font = "20pt Courier New";
+	context.font = "32pt Impact";
 
 	var centre = canvas.width / 2;
 
-	for( var i = 0; i < bottom - top; i++ )
+	context.fillStyle = "yellow";
+
+	context.fillText( "HIGH SCORES", centre - ( context.measureText( "HIGH SCORES" ).width / 2 ), 30 )
+
+	context.font = "20pt Impact";
+
+	for( var i = 0; i < bottom; i++ )
 	{
-		if( i + top == found )
+		if( i == found )
 		{
 			context.fillStyle = "yellow";
 		}
@@ -439,10 +482,10 @@ function showScores()
 			context.fillStyle = "white";
 		}
 
-		var highScore = highScores[ i + top ];
-		context.fillText( ( i + top + 1 ), 50, 30 * ( 1 + i ) );
-		context.fillText( highScore.name, centre - 50 - context.measureText( highScore.name ).width, 30 * ( 1 + i ) );
-		context.fillText( highScore.score, centre + 50, 30 * ( 1 + i ) );
+		var highScore = highScores[ i ];
+		context.fillText( ( i + 1 ), centre - 150 - context.measureText( ( i + 1 ) ).width, 30 * ( 3 + i ) );
+		context.fillText( highScore.name, centre - ( context.measureText( highScore.name ).width / 2 ), 30 * ( 3 + i ) );
+		context.fillText( highScore.score, centre + 150, 30 * ( 3 + i ) );
 	}
 
 	saveScores();
@@ -466,7 +509,7 @@ function initOnce()
 	screenRadius = Math.sqrt( Math.pow( canvas.width / 2, 2 ) + Math.pow( canvas.height / 2, 2 ) );
 
 	var spriteImage = document.getElementById( "sprites" );
-	var spriteMap = { "alien": [ 16, 16, 1 ], "player": [ 6, 16, 3 ] };
+	var spriteMap = { "alien": [ 64, 16, 1 ], "player": [ 6, 16, 3 ] };
 	var left = 0;
 
 	var max = Math.pow( canvas.width / 2, 3 ) / 3
@@ -592,6 +635,11 @@ function title()
 
 function start()
 {
+	if( frameId != null )
+	{
+		cancelAnimationFrame( frameId );
+	}
+
 	cancelTimeout();
 
 	window.onkeyup = keyup;
@@ -603,6 +651,61 @@ function start()
 	canvas.onmouseout = mouseout;
 
 	loop();
+}
+
+function pause()
+{
+	window.onkeydown = null; canvas.onmouseup = null;
+
+	if( frameId != null )
+	{
+		cancelAnimationFrame( frameId );
+	}
+
+	cancelTimeout();
+
+	var colour = [ Math.floor( Math.random() * 256 ), Math.floor( Math.random() * 256 ), Math.floor( Math.random() * 256 ) ];
+
+	for( var x = 0; x < canvas.width / 2; x++ )
+	{
+		for( var i in colour )
+		{
+			var change = Math.ceil( Math.random() * 9 ) - 5;
+			colour[ i ] = colour[ i ] + change;
+			if( colour[ i ] < 0 ) colour[ i ] = 0;
+			if( colour[ i ] > 255 ) colour[ i ] = 255;
+		}
+
+		pauseStripes[ x ] = "rgba( " + colour[ 0 ] + ", " + colour[ 1 ] + ", " + colour[ 2 ] + ", 0.5 )";
+	}
+
+	for( var x = 0; x < canvas.width / 2; x++ )
+	{
+		pauseStripes[ x + ( canvas.width / 2 ) ] = pauseStripes[ ( canvas.width / 2 - x ) ];
+	}
+
+	window.onkeydown = start; canvas.onmouseup = start;
+
+	pauseLoop();
+}
+
+var pauseStripes = [];
+var pauseLoopCount = 0;
+
+function pauseLoop()
+{
+	frameId = requestAnimationFrame( pauseLoop );
+	context.fillRect( 0, 0, canvas.width, canvas.height );
+
+	for( var x = 0; x < canvas.width; x++ )
+	{
+		context.fillStyle = pauseStripes[ ( x + pauseLoopCount ) % canvas.width ];
+		context.fillRect( x, 0, 1, canvas.height );
+	}
+
+	pauseLoopCount++;
+
+	context.drawImage( document.getElementById( "intermission-image" ), 0, 0 );
 }
 
 function loop()
